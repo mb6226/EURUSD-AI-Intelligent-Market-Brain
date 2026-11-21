@@ -2,7 +2,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from .market_data import load_ohlcv_csv
+from .market_data import load_ohlcv_csv, collect_intrabar_extremes
 
 
 def main():
@@ -18,6 +18,9 @@ def main():
     ana.add_argument("--top", type=int, default=20)
     ana.add_argument("--include-provisional", action="store_true")
     ana.add_argument("--output", default="")
+    ana.add_argument("--lower-timeframe", default="", help="Optional lower-TF CSV used to resolve parent-bar high/low order")
+    ana.add_argument("--bar-seconds", type=int, default=3600, help="Parent candle duration in seconds")
+    ana.add_argument("--lower-bar-seconds", type=int, default=60, help="Lower-timeframe candle duration in seconds")
     tr = sub.add_parser("train-elliott"); tr.add_argument("labels_csv"); tr.add_argument("--model-path", default="Modules/Elliott_Waves/Models/elliott_wave_model.joblib")
     a = p.parse_args()
     if a.command == "train-elliott":
@@ -34,12 +37,28 @@ def main():
         print(f"Candles: {len(candles)} | Pivots: {len(pivots)} | 5-wave candidates: {len(candidates)}")
         return
     from Modules.Elliott_Waves.Detection.engine import ElliottEngine
-    pivots = detect_pivots(candles, a.min_leg_pips, a.pip_size, a.include_provisional)
+    ambiguities = []
+    intrabar_events = None
+    lower_stats = None
+    if a.lower_timeframe:
+        intrabar_events, lower_stats = collect_intrabar_extremes(
+            candles, a.lower_timeframe, a.bar_seconds, a.lower_bar_seconds
+        )
+    pivots = detect_pivots(
+        candles, a.min_leg_pips, a.pip_size, a.include_provisional,
+        confirmation_delay_seconds=a.bar_seconds,
+        intrabar_events=intrabar_events,
+        intrabar_seconds=a.lower_bar_seconds,
+        ambiguities=ambiguities,
+    )
     candidates = ElliottEngine(a.pip_size, a.min_score).analyze_pivots(pivots)
     payload = {
         "symbol": "EURUSD", "candles": len(candles), "pivots": len(pivots),
         "confirmed_pivots": sum(x.confirmed for x in pivots),
         "provisional_pivots": sum(not x.confirmed for x in pivots),
+        "ambiguous_segments": len(ambiguities),
+        "ambiguities_preview": ambiguities[:50],
+        "lower_timeframe_alignment": lower_stats,
         "candidate_count": len(candidates),
         "warning": "Heuristic research ranking, not calibrated probability or trading advice.",
         "candidates": [x.to_dict() for x in candidates[:max(1, a.top)]],
@@ -49,6 +68,9 @@ def main():
         out = Path(a.output); out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(rendered, encoding="utf-8")
         print(f"Saved {min(len(candidates), max(1, a.top))} ranked candidates to {out}")
+        print(f"Ambiguous segments: {len(ambiguities)}")
+        if lower_stats:
+            print(f"Lower-TF matched bars: {lower_stats['matched_bars']} | Unmatched: {lower_stats['unmatched_bars']}")
     else:
         print(rendered)
 
