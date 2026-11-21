@@ -101,7 +101,7 @@ def test_intrabar_order_resolves_pivot_and_uses_lower_bar_close_time():
         Candle("2025-01-01T01:00:00+00:00", 1.1000, 1.1020, 1.0980, 1.1000, 1),
     ]
     events = [
-        [("H", "2025-01-01T00:10:00+00:00", 1.1005), ("L", "2025-01-01T00:20:00+00:00", 1.0998)],
+        [("H", "2025-01-01T00:10:00+00:00", 1.1005), ("L", "2025-01-01T00:20:00+00:00", 1.1001)],
         [("H", "2025-01-01T01:10:00+00:00", 1.1020), ("L", "2025-01-01T01:20:00+00:00", 1.1008)],
     ]
     pivots = detect_pivots(candles, min_leg_pips=10, intrabar_events=events, intrabar_seconds=60)
@@ -137,7 +137,7 @@ def test_streaming_csv_reader_and_intrabar_extreme_alignment(tmp_path):
         encoding="utf-8",
     )
     higher = list(iter_ohlcv_csv(higher_path))
-    groups, stats = collect_intrabar_extremes(higher, lower_path)
+    groups, stats = collect_intrabar_extremes(higher, lower_path, higher_seconds=180, lower_seconds=60)
     assert stats["matched_bars"] == 1
     assert stats["unmatched_bars"] == 0
     assert groups[0] == [
