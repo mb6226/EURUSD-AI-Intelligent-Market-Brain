@@ -85,7 +85,8 @@ def audit_prefix_invariance(candles, full_pivots):
     return checks
 
 
-def audit_pivots(pivots, candle_count):
+def audit_pivots(pivots, candles):
+    candle_count = len(candles)
     bad_index = sum(p.index < 0 or p.index >= candle_count for p in pivots)
     bad_confirmation = sum(
         p.confirmation_index is None or
@@ -108,6 +109,15 @@ def audit_pivots(pivots, candle_count):
         if pivots[i].confirmation_index is not None
         and pivots[i - 1].confirmation_index is not None
     )
+    extreme_time_mismatches = sum(
+        p.time != candles[p.index].time
+        for p in pivots if 0 <= p.index < candle_count
+    )
+    confirmation_time_mismatches = sum(
+        p.confirmation_time != candles[p.confirmation_index].time
+        for p in pivots
+        if p.confirmation_index is not None and 0 <= p.confirmation_index < candle_count
+    )
     return {
         "pivot_count": len(pivots),
         "bad_extreme_indices": bad_index,
@@ -115,6 +125,8 @@ def audit_pivots(pivots, candle_count):
         "non_alternating_pivots": non_alternating,
         "non_increasing_extreme_indices": non_increasing_extremes,
         "confirmation_order_errors": confirmation_order_errors,
+        "extreme_time_mismatches": extreme_time_mismatches,
+        "confirmation_time_mismatches": confirmation_time_mismatches,
         "provisional_pivots": sum(not p.confirmed for p in pivots),
     }
 
@@ -133,10 +145,7 @@ def audit_candidates(candidates):
         ps = c.pivots
         if any(ps[i].index >= ps[i + 1].index for i in range(len(ps) - 1)):
             pivot_order_errors += 1
-        confirmations = [p.confirmation_time for p in ps if p.confirmation_time]
-        if len(confirmations) != len(ps):
-            availability_errors += 1
-        elif epoch(max(confirmations, key=epoch)) < max(epoch(x) for x in confirmations):
+        if any(not p.confirmed or not p.confirmation_time for p in ps):
             availability_errors += 1
 
         if c.pattern == "impulse":
@@ -194,7 +203,7 @@ def main():
     prefix_checks = audit_prefix_invariance(candles, pivots)
 
     print("Auditing pivot metadata...", flush=True)
-    pivot_report = audit_pivots(pivots, len(candles))
+    pivot_report = audit_pivots(pivots, candles)
 
     print("Running Elliott structure engine...", flush=True)
     candidates = ElliottEngine(min_score=25.0).analyze_pivots(pivots)
@@ -206,7 +215,8 @@ def main():
             hard_failures.append(key)
     for key in ("bad_extreme_indices", "bad_confirmation_metadata",
                 "non_alternating_pivots", "non_increasing_extreme_indices",
-                "confirmation_order_errors"):
+                "confirmation_order_errors", "extreme_time_mismatches",
+                "confirmation_time_mismatches"):
         if pivot_report[key]:
             hard_failures.append(key)
     if any(not x["exact_match"] for x in prefix_checks):
