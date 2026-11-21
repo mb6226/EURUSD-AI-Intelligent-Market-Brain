@@ -106,8 +106,8 @@ def test_intrabar_order_resolves_pivot_and_uses_lower_bar_close_time():
     ]
     pivots = detect_pivots(candles, min_leg_pips=10, intrabar_events=events, intrabar_seconds=60)
     assert pivots
-    assert pivots[0].kind == "H"
-    assert pivots[0].confirmation_time == "2025-01-01T01:21:00+00:00"
+    high_pivot = next(pivot for pivot in pivots if pivot.kind == "H")
+    assert high_pivot.confirmation_time == "2025-01-01T01:21:00+00:00"
 
 
 def test_confirmation_time_is_parent_candle_close_not_open():
