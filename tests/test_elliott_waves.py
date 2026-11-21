@@ -76,3 +76,71 @@ def test_elliott_engine_accepts_optimized_morphology_thresholds():
     assert engine.impulse_w2_soft_max == 0.8
     assert engine.abc_b_max_ratio == 1.15
     assert engine.abc_c_min_ratio == 0.4
+
+
+
+def test_intrabar_same_lower_bar_is_reported_as_ambiguous():
+    candles = [
+        Candle("2025-01-01T00:00:00+00:00", 1.1000, 1.1010, 1.0990, 1.1000, 1),
+        Candle("2025-01-01T01:00:00+00:00", 1.1000, 1.1020, 1.0980, 1.1000, 1),
+    ]
+    events = [
+        [("H", "2025-01-01T00:10:00+00:00", 1.1010), ("L", "2025-01-01T00:10:00+00:00", 1.0990)],
+        [("H", "2025-01-01T01:10:00+00:00", 1.1020), ("L", "2025-01-01T01:10:00+00:00", 1.0980)],
+    ]
+    ambiguities = []
+    pivots = detect_pivots(candles, min_leg_pips=10, intrabar_events=events, ambiguities=ambiguities)
+    assert not pivots
+    assert len(ambiguities) == 2
+    assert all(x["reason"] == "high_and_low_inside_same_lower_timeframe_bar" for x in ambiguities)
+
+
+def test_intrabar_order_resolves_pivot_and_uses_lower_bar_close_time():
+    candles = [
+        Candle("2025-01-01T00:00:00+00:00", 1.1000, 1.1010, 1.0990, 1.1000, 1),
+        Candle("2025-01-01T01:00:00+00:00", 1.1000, 1.1020, 1.0980, 1.1000, 1),
+    ]
+    events = [
+        [("H", "2025-01-01T00:10:00+00:00", 1.1005), ("L", "2025-01-01T00:20:00+00:00", 1.0998)],
+        [("H", "2025-01-01T01:10:00+00:00", 1.1020), ("L", "2025-01-01T01:20:00+00:00", 1.1008)],
+    ]
+    pivots = detect_pivots(candles, min_leg_pips=10, intrabar_events=events, intrabar_seconds=60)
+    assert pivots
+    assert pivots[0].kind == "H"
+    assert pivots[0].confirmation_time == "2025-01-01T01:21:00+00:00"
+
+
+def test_confirmation_time_is_parent_candle_close_not_open():
+    candles = [
+        Candle("2025-01-01T00:00:00+00:00", 1.1000, 1.1002, 1.0998, 1.1000, 1),
+        Candle("2025-01-01T01:00:00+00:00", 1.1010, 1.1012, 1.1009, 1.1010, 1),
+    ]
+    pivots = detect_pivots(candles, min_leg_pips=10, confirmation_delay_seconds=3600)
+    assert pivots
+    assert pivots[0].confirmation_time == "2025-01-01T02:00:00+00:00"
+
+
+def test_streaming_csv_reader_and_intrabar_extreme_alignment(tmp_path):
+    from eurusd_ai.market_data import collect_intrabar_extremes, iter_ohlcv_csv
+    higher_path = tmp_path / "h1.csv"
+    lower_path = tmp_path / "m1.csv"
+    higher_path.write_text(
+        "time,open,high,low,close,volume\n"
+        "2025-01-01T00:00:00+00:00,1.1000,1.1020,1.0990,1.1010,10\n",
+        encoding="utf-8",
+    )
+    lower_path.write_text(
+        "time,open,high,low,close,volume\n"
+        "2025-01-01T00:00:00+00:00,1.1000,1.1010,1.1000,1.1005,1\n"
+        "2025-01-01T00:01:00+00:00,1.1005,1.1020,1.1000,1.1015,1\n"
+        "2025-01-01T00:02:00+00:00,1.1015,1.1018,1.0990,1.1010,1\n",
+        encoding="utf-8",
+    )
+    higher = list(iter_ohlcv_csv(higher_path))
+    groups, stats = collect_intrabar_extremes(higher, lower_path)
+    assert stats["matched_bars"] == 1
+    assert stats["unmatched_bars"] == 0
+    assert groups[0] == [
+        ("H", "2025-01-01T00:01:00+00:00", 1.1020),
+        ("L", "2025-01-01T00:02:00+00:00", 1.0990),
+    ]
