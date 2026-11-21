@@ -169,7 +169,13 @@ def audit_candidates(candidates):
             a = abs(ps[1].price - ps[0].price)
             b = abs(ps[2].price - ps[1].price)
             cc = abs(ps[3].price - ps[2].price)
-            if a <= 0 or b / a >= 1.0 or cc / a < 0.50:
+            b_ratio = b / a if a > 0 else float("inf")
+            c_ratio = cc / a if a > 0 else 0.0
+            if c.pattern == "flat_candidate":
+                atypical = not (0.85 <= b_ratio <= 1.15) or c_ratio < 0.50
+            else:
+                atypical = a <= 0 or b_ratio >= 1.0 or c_ratio < 0.50
+            if atypical:
                 correction_soft_warnings += 1
 
     return {
