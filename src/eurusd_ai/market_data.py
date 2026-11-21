@@ -89,7 +89,8 @@ def collect_intrabar_extremes(
                 if min_low is None or pending.low < min_low:
                     min_low, low_time = pending.low, pending.time
             pending = next(lower_iter, None)
-        if (rows and max_high is not None and min_low is not None
+        expected_rows = higher_seconds // lower_seconds
+        if (rows == expected_rows and max_high is not None and min_low is not None
                 and abs(max_high - higher.high) <= tolerance
                 and abs(min_low - higher.low) <= tolerance):
             events = [("H", high_time, max_high), ("L", low_time, min_low)]
