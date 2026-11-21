@@ -1,18 +1,26 @@
-"""Canonical paths for shared market datasets used by every module."""
+"""Canonical paths for shared EURUSD BID datasets across the full available history."""
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SHARED_DATA_DIR = PROJECT_ROOT / "data"
-# The active research dataset is the validated five-year UTC BID history.
-EURUSD_M1_BID_UTC = SHARED_DATA_DIR / "eurusd-m1-bid-2021-11-20-2026-11-20.csv"
+FULL_HISTORY_DIR = SHARED_DATA_DIR / "full-history"
+TIMEFRAMES_DIR = SHARED_DATA_DIR / "timeframes"
+
+# Validated combined M1 history: 2003-05-04 through 2026-11-20 (UTC, BID).
+EURUSD_M1_BID_UTC = FULL_HISTORY_DIR / "eurusd-m1-bid-2003-05-04-2026-11-20.csv"
+
+# Resampled from the combined M1 source; partial market-session buckets are retained.
 EURUSD_TIMEFRAMES = {
     "M1": EURUSD_M1_BID_UTC,
-    "M5": SHARED_DATA_DIR / "eurusd-5min-bid-2021-11-20-2026-11-20.csv",
-    "M15": SHARED_DATA_DIR / "eurusd-15min-bid-2021-11-20-2026-11-20.csv",
-    "H1": SHARED_DATA_DIR / "eurusd-1h-bid-2021-11-20-2026-11-20.csv",
-    "H4": SHARED_DATA_DIR / "eurusd-4h-bid-2021-11-20-2026-11-20.csv",
-    "D1": SHARED_DATA_DIR / "eurusd-1d-bid-2021-11-20-2026-11-20.csv",
+    "M5": TIMEFRAMES_DIR / "eurusd-5min-bid-2003-05-04-2026-11-20.csv",
+    "M15": TIMEFRAMES_DIR / "eurusd-15min-bid-2003-05-04-2026-11-20.csv",
+    "H1": TIMEFRAMES_DIR / "eurusd-1h-bid-2003-05-04-2026-11-20.csv",
+    "H4": TIMEFRAMES_DIR / "eurusd-4h-bid-2003-05-04-2026-11-20.csv",
+    "D1": TIMEFRAMES_DIR / "eurusd-daily-bid-2003-05-04-2026-11-20.csv",
+    "W1": TIMEFRAMES_DIR / "eurusd-weekly-bid-2003-05-04-2026-11-20.csv",
+    "MN1": TIMEFRAMES_DIR / "eurusd-monthly-bid-2003-05-04-2026-11-20.csv",
 }
+
 
 def require_dataset(path: str | Path = EURUSD_M1_BID_UTC) -> Path:
     """Return an existing dataset path or raise a helpful error."""
