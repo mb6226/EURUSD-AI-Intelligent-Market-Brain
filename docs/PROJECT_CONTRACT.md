@@ -18,6 +18,8 @@ Build one coherent EURUSD-only research system that discovers, measures, compare
 - A confirmed pivot may enter a forecast only after its confirmation candle has closed.
 - A provisional terminal pivot is explicitly marked provisional and excluded from historical training labels.
 - OHLC cannot reveal the order of a candle's high and low. If both extremes could determine pivot order, the engine must mark the sequence ambiguous or resolve it from lower-timeframe data. It must not invent intrabar order.
+- Lower-timeframe resolution is accepted only when every expected child bar is present and its aggregated high/low match the parent candle. If the parent high and low occur inside the same child bar, the parent segment is ambiguous and the detector resets rather than guessing.
+- Confirmation timestamps represent the close of the actual confirming bar (M1 when lower-timeframe events resolve the pivot, otherwise the parent timeframe), never the confirming bar's open.
 - Higher-timeframe bars are available only after their complete interval closes.
 - All feature joins, labels and forecasts use point-in-time information. No future candle, future pivot confirmation, or future revision may leak into an earlier row.
 
