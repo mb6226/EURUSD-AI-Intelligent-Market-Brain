@@ -68,7 +68,7 @@ def detect_pivots(
     ambiguity_log = ambiguities if ambiguities is not None else []
     direction = 0
     high_i = low_i = 0
-    high, low = candles[0].high, candles[0].low
+    high = low = candles[0].open if intrabar_events is not None else candles[0].close
     high_time = low_time = candles[0].time
     high_order = low_order = -1
     order = 0
@@ -115,6 +115,16 @@ def detect_pivots(
                 found.append(Pivot(low_i, low_time, low, "L", True, i, _close_time(event_time, event_seconds)))
                 direction = 1
                 high_i, high, high_time, high_order = i, price, event_time, order
+
+    if intrabar_events is not None:
+        first_events = intrabar_events[0]
+        if first_events is None:
+            reset(0, candles[0], "lower_timeframe_missing_or_extremes_mismatch")
+        elif len(first_events) == 2 and first_events[0][1] == first_events[1][1]:
+            reset(0, candles[0], "high_and_low_inside_same_lower_timeframe_bar")
+        else:
+            for kind, event_time, price in first_events:
+                process_event(0, candles[0], kind, event_time, price, intrabar_seconds)
 
     for i, candle in enumerate(candles[1:], 1):
         if intrabar_events is not None:
